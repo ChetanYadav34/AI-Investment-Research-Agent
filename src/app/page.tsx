@@ -1,65 +1,282 @@
-import Image from "next/image";
+// ============================================
+// Homepage — Main Dashboard with Mock Data
+// AI Investment Research Agent
+// ============================================
 
-export default function Home() {
+"use client";
+
+import React, { useState, useCallback } from "react";
+import { Button, Card, Input, Badge } from "@/components/ui";
+import { AnalysisLoading, DashboardGrid } from "@/components/dashboard";
+import { mockResearchState } from "@/lib/mock-data";
+import type { ResearchState } from "@/types/graph.types";
+
+type AppStatus = "idle" | "loading" | "results";
+
+export default function HomePage() {
+  const [companyName, setCompanyName] = useState("");
+  const [status, setStatus] = useState<AppStatus>("idle");
+  const [result, setResult] = useState<ResearchState | null>(null);
+
+  const handleAnalyze = useCallback(() => {
+    if (!companyName.trim()) return;
+
+    // ── Start loading ──
+    setStatus("loading");
+    setResult(null);
+
+    // ── Simulate multi-agent pipeline (2s) then show mock results ──
+    setTimeout(() => {
+      setResult(mockResearchState);
+      setStatus("results");
+    }, 2000);
+  }, [companyName]);
+
+  const handleReset = useCallback(() => {
+    setStatus("idle");
+    setResult(null);
+    setCompanyName("");
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-[calc(100vh-4rem)]">
+      {/* ── Hero Section (visible in idle + loading states) ── */}
+      {status !== "results" && (
+        <section className="relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 -z-10">
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-blue-500/[0.04] blur-3xl" />
+            <div className="absolute top-1/3 left-1/3 w-[400px] h-[400px] rounded-full bg-violet-500/[0.03] blur-3xl" />
+          </div>
+
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
+            {/* Badge */}
+            <div className="flex justify-center mb-6 animate-fade-in">
+              <Badge variant="info" size="md" dot>
+                Multi-Agent AI Research System
+              </Badge>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-center tracking-tight mb-6 animate-fade-in">
+              <span className="text-slate-100">Investment Research</span>
+              <br />
+              <span className="gradient-text">Powered by AI Agents</span>
+            </h1>
+
+            {/* Description */}
+            <p className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-12 animate-fade-in leading-relaxed">
+              Enter a company name and our multi-agent system will analyze it
+              across four dimensions — company fundamentals, financials, news
+              sentiment, and risk factors — to deliver a comprehensive
+              investment recommendation.
+            </p>
+
+            {/* Search Card */}
+            <Card glow className="max-w-2xl mx-auto animate-slide-up">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Input
+                  placeholder="Enter company name (e.g., Tesla, Apple, Microsoft)..."
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                  disabled={status === "loading"}
+                  leftIcon={
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                  }
+                />
+                <Button
+                  size="lg"
+                  isLoading={status === "loading"}
+                  onClick={handleAnalyze}
+                  disabled={!companyName.trim() || status === "loading"}
+                  className="sm:w-auto w-full whitespace-nowrap"
+                >
+                  {status === "loading" ? "Analyzing..." : "Analyze"}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </section>
+      )}
+
+      {/* ── Loading State ── */}
+      {status === "loading" && <AnalysisLoading companyName={companyName} />}
+
+      {/* ── Results Dashboard ── */}
+      {status === "results" && result && (
+        <div className="pt-8">
+          {/* Back / New Search bar */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors group"
+              >
+                <svg
+                  className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
+                New Research
+              </button>
+
+              {/* Inline quick search */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Search another company..."
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                  className="!py-2 !text-sm w-64"
+                  leftIcon={
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                  }
+                />
+                <Button
+                  size="sm"
+                  onClick={handleAnalyze}
+                  disabled={!companyName.trim()}
+                >
+                  Analyze
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard Grid */}
+          <DashboardGrid data={result} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+
+      {/* ── Agent Architecture Display (idle only) ── */}
+      {status === "idle" && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-semibold text-slate-200 mb-3">
+              Multi-Agent Architecture
+            </h2>
+            <p className="text-slate-500 text-sm">
+              Six specialized AI agents collaborate to produce comprehensive
+              research
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                icon: "📋",
+                name: "Research Coordinator",
+                desc: "Extracts company context, ticker, industry, and sector identification",
+                color: "from-violet-500/20 to-purple-500/20",
+              },
+              {
+                icon: "🏢",
+                name: "Company Agent",
+                desc: "Business model, competitive advantage, market position, strengths & weaknesses",
+                color: "from-blue-500/20 to-cyan-500/20",
+              },
+              {
+                icon: "💰",
+                name: "Finance Agent",
+                desc: "Revenue growth, profitability, financial health, investment attractiveness",
+                color: "from-emerald-500/20 to-green-500/20",
+              },
+              {
+                icon: "📰",
+                name: "News Agent",
+                desc: "Recent developments, positive & negative catalysts, market sentiment",
+                color: "from-amber-500/20 to-yellow-500/20",
+              },
+              {
+                icon: "⚠️",
+                name: "Risk Agent",
+                desc: "Regulatory, competition, industry, and execution risk assessment",
+                color: "from-red-500/20 to-orange-500/20",
+              },
+              {
+                icon: "🏛️",
+                name: "Investment Committee",
+                desc: "Synthesizes all analyses, calculates score, delivers INVEST or PASS",
+                color: "from-indigo-500/20 to-blue-500/20",
+              },
+            ].map((agent) => (
+              <Card
+                key={agent.name}
+                className="group hover:scale-[1.02] transition-transform duration-300"
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl bg-gradient-to-br ${agent.color} flex items-center justify-center text-lg mb-3`}
+                >
+                  {agent.icon}
+                </div>
+                <h3 className="text-sm font-semibold text-slate-200 mb-1.5">
+                  {agent.name}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {agent.desc}
+                </p>
+              </Card>
+            ))}
+          </div>
+
+          {/* Tech Stack Footer */}
+          <div className="mt-16 text-center">
+            <p className="text-xs text-slate-600 mb-4 uppercase tracking-widest font-medium">
+              Built with
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {[
+                "Next.js 15",
+                "TypeScript",
+                "LangGraph.js",
+                "LangChain.js",
+                "Google Gemini",
+                "Tailwind CSS",
+              ].map((tech) => (
+                <span
+                  key={tech}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06]"
+                >
+                  {tech}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
