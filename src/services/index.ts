@@ -1,10 +1,21 @@
 // ============================================
-// Service Exports (implemented in Phase 5)
+// Service Exports
 // AI Investment Research Agent
 // ============================================
 
-// Services will be implemented in Phase 5:
-// - gemini.service.ts
-// - logger.service.ts
+export {
+  generateText,
+  generateJSON,
+  testConnection,
+  resetGeminiClient,
+  GeminiError,
+  GeminiConfigError,
+  GeminiRateLimitError,
+  GeminiParseError,
+} from "./gemini.service";
 
-export {};
+export type {
+  GenerateOptions,
+  GenerateResult,
+  GenerateJSONResult,
+} from "./gemini.service";
