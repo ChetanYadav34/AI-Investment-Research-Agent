@@ -369,7 +369,17 @@ async function generateGroqText(
   if (systemInstruction) {
     messages.push({ role: "system", content: systemInstruction });
   }
-  messages.push({ role: "user", content: prompt });
+  
+  // Trim excessively large prompts to stay under TPM limits,
+  // preserving the beginning (context) and end (schema instructions).
+  let safePrompt = prompt;
+  if (safePrompt.length > 25000) {
+    const head = safePrompt.substring(0, 10000);
+    const tail = safePrompt.substring(safePrompt.length - 10000);
+    safePrompt = `${head}\n\n...[NON-ESSENTIAL CONTEXT TRUNCATED]...\n\n${tail}`;
+  }
+  
+  messages.push({ role: "user", content: safePrompt });
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -382,7 +392,7 @@ async function generateGroqText(
         model: env.server.GROQ_MODEL,
         messages,
         temperature,
-        max_tokens: maxOutputTokens,
+        max_tokens: Math.min(maxOutputTokens || 1024, 1024),
       }),
       signal: controller.signal
     });
