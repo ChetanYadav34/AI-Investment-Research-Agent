@@ -15,6 +15,8 @@
 interface ServerEnv {
   GEMINI_API_KEY: string;
   GEMINI_MODEL: string;
+  GROQ_API_KEY?: string;
+  GROQ_MODEL: string;
 }
 
 /**
@@ -79,6 +81,8 @@ export function getEnv(): AppEnv {
     server: {
       GEMINI_API_KEY: GEMINI_API_KEY!,
       GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      GROQ_API_KEY: process.env.GROQ_API_KEY,
+      GROQ_MODEL: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
     },
     client: {
       NEXT_PUBLIC_APP_NAME:

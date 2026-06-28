@@ -222,7 +222,7 @@ function getModel(systemInstruction?: string): GenerativeModel {
  * @throws {GeminiRateLimitError} If rate limited after all retries
  * @throws {GeminiError} For all other API errors
  */
-export async function generateText(
+async function generateGeminiText(
   prompt: string,
   options: GenerateOptions = {}
 ): Promise<GenerateResult> {
@@ -237,6 +237,7 @@ export async function generateText(
   const model = getModel(systemInstruction);
   let lastError: Error | null = null;
 
+  console.log(`[LLM] Using Gemini`);
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // ── Create AbortController for this attempt ──
     // Each retry gets its own controller so a previous timeout
@@ -338,6 +339,116 @@ export async function generateText(
     false
   );
 }
+
+/**
+ * Generates text from Groq API (fallback).
+ */
+async function generateGroqText(
+  prompt: string,
+  options: GenerateOptions = {}
+): Promise<GenerateResult> {
+  const env = getEnv();
+  if (!env.server.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not configured for fallback.");
+  }
+  
+  console.log(`[LLM] Using Groq`);
+
+  const {
+    temperature = GEMINI_CONFIG.defaultTemperature,
+    maxOutputTokens = GEMINI_CONFIG.maxOutputTokens,
+    systemInstruction,
+    timeoutMs = GEMINI_CONFIG.requestTimeoutMs,
+  } = options;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const startTime = Date.now();
+
+  const messages = [];
+  if (systemInstruction) {
+    messages.push({ role: "system", content: systemInstruction });
+  }
+  messages.push({ role: "user", content: prompt });
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.server.GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: env.server.GROQ_MODEL,
+        messages,
+        temperature,
+        max_tokens: maxOutputTokens,
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    const durationMs = Date.now() - startTime;
+    const text = data.choices?.[0]?.message?.content || "";
+    const usage = data.usage || {};
+    
+    console.log(
+      `[Groq] Generated ${text.length} chars in ${durationMs}ms ` +
+        `(${usage.total_tokens || "?"} tokens)`
+    );
+
+    return {
+      text,
+      usage: {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      },
+      durationMs,
+    };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new GeminiTimeoutError(timeoutMs); // Reuse timeout error for consistency upstream
+    }
+    throw error;
+  }
+}
+
+/**
+ * Orchestrator: Tries Gemini, falls back to Groq on infrastructure failures.
+ */
+export async function generateText(
+  prompt: string,
+  options: GenerateOptions = {}
+): Promise<GenerateResult> {
+  try {
+    return await generateGeminiText(prompt, options);
+  } catch (error) {
+    const isInfrastructureError =
+      error instanceof GeminiTimeoutError ||
+      error instanceof GeminiRateLimitError ||
+      (error instanceof GeminiError && error.code === "EXHAUSTED_RETRIES") ||
+      (error instanceof GeminiError && error.code === "API_ERROR");
+
+    if (isInfrastructureError) {
+      console.log(`[LLM] Gemini unavailable (${error instanceof Error ? error.message : String(error)})`);
+      console.log(`[LLM] Switching to Groq`);
+      return await generateGroqText(prompt, options);
+    }
+    
+    // Throw config and parse errors
+    throw error;
+  }
+}
+
 
 /**
  * Generates structured JSON from a prompt using Gemini.
