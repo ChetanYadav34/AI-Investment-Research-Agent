@@ -1,11 +1,15 @@
 // ============================================
-// LangGraph Workflow Exports (implemented in Phase 7)
+// Graph Exports
 // AI Investment Research Agent
 // ============================================
 
-// Graph modules will be implemented in Phase 7:
-// - state.ts (ResearchState + Annotation)
-// - nodes.ts (Node function wrappers)
-// - workflow.ts (StateGraph construction)
+export { GraphState } from "./state";
+export type { GraphStatus } from "./state";
+export { researchGraph } from "./graph";
 
-export {};
+export { coordinatorNode } from "./nodes/coordinator.node";
+export { companyNode } from "./nodes/company.node";
+export { financialNode } from "./nodes/financial.node";
+export { newsNode } from "./nodes/news.node";
+export { riskNode } from "./nodes/risk.node";
+export { committeeNode } from "./nodes/committee.node";

@@ -56,7 +56,6 @@ export default function AnalysisLoading({ companyName }: AnalysisLoadingProps) {
   const [steps, setSteps] = useState<AgentStep[]>(
     PIPELINE_STEPS.map((s) => ({ ...s, status: "pending" }))
   );
-  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     // Simulate agent pipeline progression
@@ -81,7 +80,6 @@ export default function AnalysisLoading({ companyName }: AnalysisLoadingProps) {
             return s;
           })
         );
-        setCurrentStep(1);
       }, 400)
     );
 
@@ -115,7 +113,6 @@ export default function AnalysisLoading({ companyName }: AnalysisLoadingProps) {
         setSteps((prev) =>
           prev.map((s, i) => (i === 4 ? { ...s, status: "completed" } : s))
         );
-        setCurrentStep(5);
       }, 1400)
     );
 

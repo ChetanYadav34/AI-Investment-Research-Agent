@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Investment Research Agent
 
-## Getting Started
+A Next.js, LangGraph, and Gemini-powered multi-agent system that performs comprehensive financial research and delivers structured investment recommendations.
 
-First, run the development server:
+## 🚀 Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+The AI Investment Research Agent mimics a professional investment committee. You provide a company name, and a team of specialized AI agents asynchronously researches different dimensions of the business before synthesizing a final investment recommendation.
+
+### The Agents
+1. **Research Coordinator**: Determines company context, industry, and core identity.
+2. **Company Agent**: Analyzes business models, competitive advantages, and market position.
+3. **Finance Agent**: Analyzes revenue growth, profitability, and financial health.
+4. **News Agent**: Analyzes recent developments, market sentiment, and catalysts.
+5. **Risk Agent**: Assesses regulatory, execution, and competitive risks.
+6. **Investment Committee**: Synthesizes the parallel outputs and generates an "INVEST" or "PASS" recommendation with a confidence score.
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    Start((Start)) --> Coord[Coordinator Node]
+    Coord --> Parallel{Parallel Dispatch}
+    
+    Parallel --> Comp[Company Node]
+    Parallel --> Fin[Financial Node]
+    Parallel --> News[News Node]
+    Parallel --> Risk[Risk Node]
+    
+    Comp --> Comm[Committee Node]
+    Fin --> Comm
+    News --> Comm
+    Risk --> Comm
+    
+    Comm --> End((End))
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ Features
+- **Parallel Orchestration**: Powered by LangGraph for concurrent AI agent execution.
+- **Strictly Typed Structured Outputs**: Leverages LangChain with Zod schemas to guarantee parsable, deterministic JSON outputs from the LLM.
+- **Production-grade Next.js App Router API**: Clean error bubbling, request validation, and timeout handling.
+- **Modern UI**: Polished, responsive TailwindCSS dashboard with loading states, graceful failure states, and micro-animations.
+- **Clean Architecture**: Strong separation of concerns across Services, Tools, Chains, Graph Nodes, and UI.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 💻 Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **AI Orchestration**: LangGraph.js, LangChain.js
+- **Model**: Google Gemini (`gemini-2.5-flash`)
+- **Styling**: Tailwind CSS, lucide-react
+- **Validation**: Zod
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📂 Folder Structure
 
-## Learn More
+```
+src/
+├── app/                  # Next.js App Router pages & API routes
+│   └── api/research/     # Core LangGraph execution endpoint
+├── chains/               # LangChain prompt templates & structured outputs
+├── components/           # React UI components (Dashboard, Cards, etc.)
+├── graph/                # LangGraph state definitions & node implementations
+├── lib/                  # Shared utilities (API clients, Zod schemas, Env validation)
+├── services/             # External integration layers (Gemini API)
+├── tools/                # Dynamic LangChain tools for agents
+└── types/                # Global TypeScript definitions
+```
 
-To learn more about Next.js, take a look at the following resources:
+## ⚙️ Installation & Local Development
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Clone the repository**
+```bash
+git clone https://github.com/ChetanYadav34/AI-Investment-Research-Agent.git
+cd AI-Investment-Research-Agent
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. **Install dependencies**
+```bash
+npm install
+```
 
-## Deploy on Vercel
+3. **Configure Environment Variables**
+Copy the example environment file:
+```bash
+cp .env.example .env.local
+```
+Add your Google Gemini API key to `.env.local`:
+```env
+GEMINI_API_KEY="your_api_key_here"
+GEMINI_MODEL="gemini-2.5-flash"
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Run the Development Server**
+```bash
+npm run dev
+```
+Navigate to `http://localhost:3000` to interact with the application.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🚀 Deployment (Vercel)
+
+This project is optimized for deployment on Vercel.
+
+1. Push your code to GitHub.
+2. Import the project into Vercel.
+3. Add `GEMINI_API_KEY` to your Vercel Environment Variables.
+4. Deploy!
+
+*Note: Multi-agent generation takes 10-30 seconds. If deploying on Vercel's Free (Hobby) tier, you may encounter Serverless Function Timeout errors (which cap at 10-60s). Upgrading to Pro allows for the `maxDuration` parameter to extend to 5 minutes.*
+
+## 🔮 Future Improvements
+- **Live Financial Data Retrieval**: Integrating real API tools (e.g., AlphaVantage, Yahoo Finance) into the agent's toolset.
+- **Real-time Streaming**: Emitting SSE (Server-Sent Events) from the LangGraph nodes to stream the thought processes to the UI in real-time.
+- **Caching Layer**: Persisting analyzed reports to a database (e.g., Postgres, Redis) to avoid redundant LLM invocations.

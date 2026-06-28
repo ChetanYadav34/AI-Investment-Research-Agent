@@ -1,11 +1,12 @@
 // ============================================
-// LangChain Tool Exports (implemented in Phase 6)
+// LangChain Tool Exports
 // AI Investment Research Agent
 // ============================================
 
-// Tools will be implemented in Phase 6:
-// - company.tool.ts
-// - financial.tool.ts
-// - news.tool.ts
+export { companyContextTool } from "./company.tool";
+export { financialContextTool } from "./financial.tool";
+export { newsContextTool } from "./news.tool";
 
-export {};
+export type { CompanyResearchToolInput } from "./company.tool";
+export type { FinancialAnalysisToolInput } from "./financial.tool";
+export type { NewsAnalysisToolInput } from "./news.tool";

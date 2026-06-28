@@ -12,6 +12,7 @@ export {
   GeminiConfigError,
   GeminiRateLimitError,
   GeminiParseError,
+  GeminiTimeoutError,
 } from "./gemini.service";
 
 export type {

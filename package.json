@@ -6,13 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:gemini": "npx tsx scripts/test-gemini.ts",
+    "test:chain:company": "npx tsx scripts/test-company-chain.ts",
+    "test:chain:financial": "npx tsx scripts/test-financial-chain.ts",
+    "test:chain:news": "npx tsx scripts/test-news-chain.ts",
+    "test:chain:risk": "npx tsx scripts/test-risk-chain.ts",
+    "test:chain:committee": "npx tsx scripts/test-committee-chain.ts",
+    "test:chains": "npm run test:chain:company && npm run test:chain:financial && npm run test:chain:news && npm run test:chain:risk && npm run test:chain:committee",
+    "test:api": "npx tsx scripts/test-api.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^1.2.1",
+    "@langchain/google-genai": "^2.2.0",
+    "@langchain/langgraph": "^1.4.7",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -22,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

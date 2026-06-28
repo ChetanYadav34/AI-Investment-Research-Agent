@@ -14,7 +14,8 @@
 //   3. Provides `generateJSON()` — structured JSON generation
 //   4. Handles ALL API errors with typed error classes
 //   5. Implements retry logic with exponential backoff
-//   6. Logs generation metadata (tokens, timing)
+//   6. Implements request timeout via AbortController
+//   7. Logs generation metadata (tokens, timing)
 //
 // What this file does NOT do:
 //   - Define prompts (that's `src/prompts/`)
@@ -23,11 +24,12 @@
 //
 // Why @google/generative-ai instead of @langchain/google-genai:
 //   Phase 4 establishes the raw SDK connection.
-//   Phase 6 will layer LangChain on top for tool integration.
+//   Phase 5+ will layer LangChain on top for tool integration.
 //   This gives us a fallback if LangChain abstractions break.
 
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { getEnv } from "@/lib/env";
+import { GEMINI_CONFIG } from "@/lib/constants";
 
 // ============================================
 // Error Types
@@ -84,6 +86,26 @@ export class GeminiParseError extends GeminiError {
   }
 }
 
+/**
+ * Thrown when a request exceeds the configured timeout.
+ * Non-retryable by default — if the model is too slow, retrying
+ * the same prompt will likely hit the same timeout.
+ */
+export class GeminiTimeoutError extends GeminiError {
+  public readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(
+      `Gemini request timed out after ${timeoutMs}ms. ` +
+        `Consider increasing the timeout or simplifying the prompt.`,
+      "TIMEOUT",
+      false
+    );
+    this.name = "GeminiTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 // ============================================
 // Types
 // ============================================
@@ -92,14 +114,16 @@ export class GeminiParseError extends GeminiError {
  * Options for text generation requests.
  */
 export interface GenerateOptions {
-  /** Temperature (0-2). Lower = more deterministic. Default: 0.7 */
+  /** Temperature (0-2). Lower = more deterministic. Default from GEMINI_CONFIG */
   temperature?: number;
-  /** Maximum output tokens. Default: 4096 */
+  /** Maximum output tokens. Default from GEMINI_CONFIG */
   maxOutputTokens?: number;
   /** System instruction prepended to all prompts */
   systemInstruction?: string;
-  /** Number of retry attempts on retryable errors. Default: 2 */
+  /** Number of retry attempts on retryable errors. Default from GEMINI_CONFIG */
   maxRetries?: number;
+  /** Per-request timeout in ms. Default from GEMINI_CONFIG (15s) */
+  timeoutMs?: number;
 }
 
 /**
@@ -150,15 +174,16 @@ function getClient(): GoogleGenerativeAI {
 }
 
 /**
- * Returns the singleton GenerativeModel instance.
- * Uses the model specified in environment config (default: gemini-2.5-flash).
+ * Returns a GenerativeModel instance.
+ * Uses the model specified in environment config (falls back to GEMINI_CONFIG.defaultModel).
+ * A new instance is created when systemInstruction is provided (SDK constraint).
  */
 function getModel(systemInstruction?: string): GenerativeModel {
   const env = getEnv();
   const client = getClient();
 
   // Create a new model instance if system instruction is provided
-  // (system instruction is immutable per model instance)
+  // (system instruction is immutable per model instance in the SDK)
   if (systemInstruction) {
     return client.getGenerativeModel({
       model: env.server.GEMINI_MODEL,
@@ -182,49 +207,61 @@ function getModel(systemInstruction?: string): GenerativeModel {
 /**
  * Generates text from a prompt using Gemini.
  *
+ * Features:
+ * - AbortController timeout (default 15s, configurable)
+ * - Retry with exponential backoff on 429/5xx
+ * - Structured error classes for each failure mode
+ * - Token usage and timing metadata
+ *
  * @param prompt - The user prompt to send
  * @param options - Generation configuration
  * @returns The generated text with usage metadata
  *
+ * @throws {GeminiTimeoutError} If request exceeds timeoutMs
  * @throws {GeminiConfigError} If API key is missing
- * @throws {GeminiRateLimitError} If rate limited (retryable)
+ * @throws {GeminiRateLimitError} If rate limited after all retries
  * @throws {GeminiError} For all other API errors
- *
- * @example
- * ```ts
- * const result = await generateText(
- *   "Analyze Tesla's competitive position",
- *   { temperature: 0.3, systemInstruction: "You are a financial analyst." }
- * );
- * console.log(result.text);
- * console.log(`Tokens: ${result.usage.totalTokens}`);
- * ```
  */
 export async function generateText(
   prompt: string,
   options: GenerateOptions = {}
 ): Promise<GenerateResult> {
   const {
-    temperature = 0.7,
-    maxOutputTokens = 4096,
+    temperature = GEMINI_CONFIG.defaultTemperature,
+    maxOutputTokens = GEMINI_CONFIG.maxOutputTokens,
     systemInstruction,
-    maxRetries = 2,
+    maxRetries = GEMINI_CONFIG.maxRetries,
+    timeoutMs = GEMINI_CONFIG.requestTimeoutMs,
   } = options;
 
   const model = getModel(systemInstruction);
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // ── Create AbortController for this attempt ──
+    // Each retry gets its own controller so a previous timeout
+    // doesn't cancel the next attempt.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const startTime = Date.now();
 
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature,
-          maxOutputTokens,
+      const result = await model.generateContent(
+        {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature,
+            maxOutputTokens,
+          },
         },
-      });
+        { signal: controller.signal } as never
+      );
+
+      // ── Clear timeout on success ──
+      // Prevents the timer from firing after we've already received
+      // a response, which would cause a spurious abort on the next call.
+      clearTimeout(timeoutId);
 
       const durationMs = Date.now() - startTime;
       const response = result.response;
@@ -246,9 +283,17 @@ export async function generateText(
         durationMs,
       };
     } catch (error) {
+      // ── Always clear the timeout to prevent memory leaks ──
+      clearTimeout(timeoutId);
+
+      // ── Handle AbortController timeout ──
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new GeminiTimeoutError(timeoutMs);
+      }
+
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Classify error for retry logic
+      // ── Classify error for retry logic ──
       const errorMessage = lastError.message.toLowerCase();
       const isRetryable =
         errorMessage.includes("429") ||
@@ -267,7 +312,7 @@ export async function generateText(
         continue;
       }
 
-      // Non-retryable or out of retries
+      // ── Non-retryable or out of retries ──
       if (errorMessage.includes("api key") || errorMessage.includes("401")) {
         throw new GeminiConfigError(
           `Invalid Gemini API key. Check your GEMINI_API_KEY in .env.local`
@@ -303,26 +348,16 @@ export async function generateText(
  * @returns The parsed JSON data with usage metadata
  *
  * @throws {GeminiParseError} If the response cannot be parsed as JSON
- *
- * @example
- * ```ts
- * interface Analysis { score: number; reasoning: string }
- *
- * const result = await generateJSON<Analysis>(
- *   "Analyze Tesla. Return JSON: { score: number, reasoning: string }",
- *   { temperature: 0.3 }
- * );
- * console.log(result.data.score); // 8
- * ```
+ * @throws {GeminiTimeoutError} If the request times out
  */
 export async function generateJSON<T = Record<string, unknown>>(
   prompt: string,
   options: GenerateOptions = {}
 ): Promise<GenerateJSONResult<T>> {
-  // Force lower temperature for structured output
+  // Force lower temperature for structured output consistency
   const jsonOptions: GenerateOptions = {
     ...options,
-    temperature: options.temperature ?? 0.3,
+    temperature: options.temperature ?? GEMINI_CONFIG.jsonTemperature,
   };
 
   const result = await generateText(prompt, jsonOptions);
@@ -360,9 +395,6 @@ export async function generateJSON<T = Record<string, unknown>>(
 /**
  * Tests the Gemini connection with a minimal prompt.
  * Useful for health checks and startup validation.
- *
- * @returns true if the connection is successful
- * @throws {GeminiConfigError} If the API key is invalid
  */
 export async function testConnection(): Promise<{
   success: boolean;
@@ -373,10 +405,11 @@ export async function testConnection(): Promise<{
   const startTime = Date.now();
 
   try {
-    const result = await generateText("Reply with: OK", {
+    await generateText("Reply with: OK", {
       temperature: 0,
       maxOutputTokens: 10,
       maxRetries: 0,
+      timeoutMs: 10_000,
     });
 
     return {
@@ -384,7 +417,7 @@ export async function testConnection(): Promise<{
       model: env.server.GEMINI_MODEL,
       durationMs: Date.now() - startTime,
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       model: env.server.GEMINI_MODEL,

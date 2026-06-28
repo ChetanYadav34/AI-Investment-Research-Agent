@@ -48,3 +48,32 @@ export const API_CONFIG = {
   researchEndpoint: "/api/research",
   timeoutMs: 120_000,
 } as const;
+
+/**
+ * Supported Gemini model identifiers.
+ * Centralized here so service files never hardcode model names.
+ * Changing a model is a single-line change, not a codebase-wide find-replace.
+ */
+export const GEMINI_MODELS = {
+  FLASH: "gemini-2.5-flash",
+  PRO: "gemini-2.5-pro",
+} as const;
+
+/**
+ * Gemini service configuration defaults.
+ */
+export const GEMINI_CONFIG = {
+  /** Default model for all generation requests */
+  defaultModel: GEMINI_MODELS.FLASH,
+  /** Default temperature for text generation */
+  defaultTemperature: 0.7,
+  /** Lower temperature for structured JSON output */
+  jsonTemperature: 0.3,
+  /** Maximum output tokens per request */
+  maxOutputTokens: 8192,
+  /** Per-request timeout in milliseconds */
+  requestTimeoutMs: 90_000,
+  /** Number of retry attempts on retryable errors */
+  maxRetries: 2,
+} as const;
+

@@ -5,8 +5,7 @@
 
 import React from "react";
 import type { RiskAnalysis } from "@/types/agents.types";
-import { Card, CardHeader, CardContent, Badge, ScoreBar } from "@/components/ui";
-import { getRiskLevelStyle } from "@/utils/formatters";
+import { Card, CardHeader, CardContent, Badge } from "@/components/ui";
 
 interface RiskAnalysisCardProps {
   analysis: RiskAnalysis;
@@ -15,8 +14,6 @@ interface RiskAnalysisCardProps {
 export default function RiskAnalysisCard({
   analysis,
 }: RiskAnalysisCardProps) {
-  const riskStyle = getRiskLevelStyle(analysis.overallRiskLevel);
-
   const riskCategories = [
     { label: "Regulatory Risks", items: analysis.regulatoryRisks, icon: "⚖️" },
     { label: "Competition Risks", items: analysis.competitionRisks, icon: "🏁" },

@@ -1,7 +1,22 @@
 // ============================================
-// Output Parsers (StructuredOutputParser setup in Phase 6)
+// Output Parsers
 // AI Investment Research Agent
 // ============================================
+
+import { StructuredOutputParser } from "@langchain/core/output_parsers";
+import type { z } from "zod";
+
+export function createStructuredParser<TSchema extends z.ZodType>(
+  schema: TSchema
+) {
+  return StructuredOutputParser.fromZodSchema(schema);
+}
+
+export function getFormatInstructions<TSchema extends z.ZodType>(
+  schema: TSchema
+): string {
+  return createStructuredParser(schema).getFormatInstructions();
+}
 
 /**
  * Safely parses a JSON string with error handling.

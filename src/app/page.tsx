@@ -8,7 +8,7 @@
 import React, { useState, useCallback } from "react";
 import { Button, Card, Input, Badge } from "@/components/ui";
 import { AnalysisLoading, DashboardGrid } from "@/components/dashboard";
-import { mockResearchState } from "@/lib/mock-data";
+import { runResearchAnalysis } from "@/lib/api-client";
 import type { ResearchState } from "@/types/graph.types";
 
 type AppStatus = "idle" | "loading" | "results";
@@ -17,24 +17,37 @@ export default function HomePage() {
   const [companyName, setCompanyName] = useState("");
   const [status, setStatus] = useState<AppStatus>("idle");
   const [result, setResult] = useState<ResearchState | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = useCallback(() => {
+  const handleAnalyze = useCallback(async () => {
     if (!companyName.trim()) return;
 
     // ── Start loading ──
     setStatus("loading");
     setResult(null);
+    setError(null);
 
-    // ── Simulate multi-agent pipeline (2s) then show mock results ──
-    setTimeout(() => {
-      setResult(mockResearchState);
+    try {
+      const data = await runResearchAnalysis(companyName);
+      
+      // Ensure the API returns the correct structure conforming to ResearchState
+      setResult({
+        ...data,
+        status: "completed",
+        companyName,
+      } as ResearchState);
+      
       setStatus("results");
-    }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setStatus("idle");
+    }
   }, [companyName]);
 
   const handleReset = useCallback(() => {
     setStatus("idle");
     setResult(null);
+    setError(null);
     setCompanyName("");
   }, []);
 
@@ -108,6 +121,19 @@ export default function HomePage() {
                 </Button>
               </div>
             </Card>
+
+            {/* Error State */}
+            {error && (
+              <div className="max-w-2xl mx-auto mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-3 animate-slide-up">
+                <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <h4 className="font-semibold mb-1">Analysis Failed</h4>
+                  <p className="opacity-90">{error}</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
